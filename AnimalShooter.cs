@@ -6,11 +6,12 @@
 using System;
 using System.Windows.Forms;
 using GTA;
+using GTA.Math;
 using GTA.Native;
 
 public class AnimalShooter : Script
 {
-    
+
     public AnimalShooter()
     {
         Tick += onTick;
@@ -22,14 +23,13 @@ public class AnimalShooter : Script
     //                 "a_c_rhesus" , "a_c_chimp"      , "a_c_chop"    , "a_c_cormorant" , "a_c_cow"    , "a_c_coyote"    ,
     //                 "a_c_crow"   , "a_c_deer"       , "a_c_fish"    , "a_c_hen"       , "a_c_husky"  , "a_c_mtlion"    ,
     //                 "a_c_pig"     , "a_c_rat"       , "a_c_retriever"};
-    
     GTA.Native.PedHash[] zoo = { PedHash.Cat  , PedHash.Cow      , PedHash.Crow     , PedHash.Chop       , PedHash.MountainLion,      
                                  PedHash.Chimp, PedHash.Husky    , PedHash.Coyote   , PedHash.TigerShark , PedHash.Deer        ,
                                  PedHash.Rat  , PedHash.Pig      , PedHash.Boar     , PedHash.Rhesus     , PedHash.HammerShark ,
                                  PedHash.Hen  , PedHash.Dolphin  , PedHash.Humpback , PedHash.Seagull    , PedHash.ChickenHawk ,
                                  PedHash.Fish , PedHash.Retriever, PedHash.Cormorant, PedHash.KillerWhale, PedHash.Shepherd    ,
                                  PedHash.Pigeon };
-                                 
+
     Ped player = Game.Player.Character;
     Random rnd = new Random();
     GTA.Native.PedHash selectedped;
@@ -37,24 +37,84 @@ public class AnimalShooter : Script
     bool bActivated = false;
     bool bCocktail = false;
     GTA.Menu AmmoMenu;
+    int force = 100;
     
+        void shootAnimals()
+    {   
+
+        Ped pedAnimal = (bCocktail)? World.CreatePed(zoo[rnd.Next(0, 25)], player.GetOffsetInWorldCoords(new GTA.Math.Vector3(0, 3, 0))) : World.CreatePed(selectedped, player.GetOffsetInWorldCoords(new GTA.Math.Vector3(0, 3, 0)));
+
+        Function.Call(Hash.SET_PED_TO_RAGDOLL, pedAnimal, 4000, 4000, 0, 0, 0);
+
+        pedAnimal.Velocity.Equals(10);
+        pedAnimal.ApplyForce(player.ForwardVector * 50);
+
+
+        //Function.Call(GTA.Native.Hash.SET_ENTITY_HEALTH, pedAnimal, 0);
+        pedAnimal.Task.FleeFrom(Game.Player.Character.Position);
+        pedAnimal.MarkAsNoLongerNeeded();
+        counter++;
+        player.Weapons.Current.Ammo += 2;
+
+    }
+
+    Vector3 RotationToDirection(Vector3 rotation)
+    {
+        float radZ = rotation.Z * 0.0174532924f;
+        float radX = rotation.X * 0.0174532924f;
+
+        float num = Math.Abs((float)Math.Cos((double)radX));
+
+        return new Vector3
+        {
+            X = (float)((double)((float)(-(float)Math.Sin((double)radZ))) * (double)num),
+            Y = (float)((double)((float)Math.Cos((double)radZ)) * (double)num),
+            Z = (float)Math.Sin((double)radX)
+
+        };
+    }
+
+    void shootAnimal2()
+    {   //get camera roation
+        Vector3 Rot = Function.Call<Vector3>(Hash.GET_CAM_ROT, 2);
+        //normalize to directional vector
+        Vector3 direction = RotationToDirection(Rot);
+
+        //Vector3 Rotation = GameplayCamera.Rotation;
+
+        //directional force vector
+        direction.X = force * direction.X;
+        direction.Y = force * direction.Y;
+        direction.Z = force * direction.Z;
+
+        
+
+        Ped pedAnimal = World.CreatePed(selectedped, player.GetOffsetInWorldCoords(new GTA.Math.Vector3(0, 1, 0)));
+
+        Function.Call(Hash.SET_PED_TO_RAGDOLL, pedAnimal, 4000, 4000, 0, 0, 0);
+
+        Function.Call(Hash.APPLY_FORCE_TO_ENTITY, pedAnimal, direction.X , direction.Y , direction.Z, 0 , 0 , 0 , false, false, true, true, false, true );
+        counter++;
+        player.Weapons.Current.Ammo += 2;
+    }
+
     private void onTick(object sender, EventArgs e)
     {
         if (counter > 300)
         {
-            Function.Call(Hash.CLEAR_AREA, player.Position.X, player.Position.Y, player.Position.Z, 200 , false );
+            Function.Call(Hash.CLEAR_AREA, player.Position.X, player.Position.Y, player.Position.Z, 200, false);
             counter = 0;
         }
-
-        if (player.IsShooting && bActivated && bCocktail) cocktail();
-        if (player.IsShooting && bActivated && !bCocktail) shootAnimals();
-       
         
+        //if (player.IsShooting && bActivated) shootAnimals();
+        if (player.IsShooting && bActivated) shootAnimal2();
+
+
     }
 
     private void onKeyDown(object sender, KeyEventArgs e)
     {
-        
+
     }
 
     private void onKeyUp(object sender, KeyEventArgs e)
@@ -69,18 +129,19 @@ public class AnimalShooter : Script
         }
     }
 
-    void toggler(){
-          
-         if (!bActivated)
-            {
-                bActivated = true;
-                GTA.UI.Notify("Animal Cannon Activated!");
-             }
+    void toggler()
+    {
+
+        if (!bActivated)
+        {
+            bActivated = true;
+            GTA.UI.Notify("Animal Cannon Activated!");
+        }
         else if (bActivated)
-            {
-                bActivated = false;
-                GTA.UI.Notify("Animal Cannon Deactivated!");
-            }
+        {
+            bActivated = false;
+            GTA.UI.Notify("Animal Cannon Deactivated!");
+        }
     }
 
     void CloseMenu()
@@ -92,7 +153,6 @@ public class AnimalShooter : Script
     void MainMenu()
     {
         CloseMenu();
-        
         AmmoMenu = new GTA.Menu("Animal Cannon!", new GTA.MenuItem[] { 
             new MenuButton("Toggle Animal Cannon"  , "Toggles the mod on or off" ,toggler         ),
             new MenuButton("Cat"            , "Switch to cat ammo"               ,catAmmo         ),
@@ -123,7 +183,7 @@ public class AnimalShooter : Script
             new MenuButton("Dolphin"        , "Switch to dolphin ammo type"      ,dolphinAmmo     ),
             new MenuButton("Humpback Whale" , "Switch to humpback ammo type"     ,humpbackAmmo    ),
             new MenuButton("Killer Whale"   , "Switch to killer-whale ammo type" ,killerwhaleAmmo ),
-            new MenuButton("TOGGLE COCKTAIL", "YOU NEVER KNOW!"                  ,cocktailAmmo)
+            new MenuButton("TOGGLE COCKTAIL"       , "YOU NEVER KNOW!"                  ,cocktailAmmo)
             });
 
 
@@ -134,7 +194,7 @@ public class AnimalShooter : Script
     }
 
     void catAmmo()
-    { 
+    {
         selectedped = zoo[0];
     }
     void cowAmmo()
@@ -215,7 +275,7 @@ public class AnimalShooter : Script
     }
     void fishAmmo()
     {
-       selectedped = zoo[20];
+        selectedped = zoo[20];
     }
     void retrieverAmmo()
     {
@@ -248,38 +308,7 @@ public class AnimalShooter : Script
             bCocktail = false;
         }
     }
-    void shootAnimals()
-    {
-        Ped pedAnimal = World.CreatePed(selectedped, player.GetOffsetInWorldCoords(new GTA.Math.Vector3(0,1,0)) );
-        
-        Function.Call(Hash.SET_PED_TO_RAGDOLL, pedAnimal,4000 , 4000 , 0 , 0 , 0);
 
-        pedAnimal.Velocity.Equals(10);
-        pedAnimal.ApplyForce(player.ForwardVector* 50);
-
-        
-        //Function.Call(GTA.Native.Hash.SET_ENTITY_HEALTH, pedAnimal, 0);
-        pedAnimal.Task.FleeFrom(Game.Player.Character.Position);
-        pedAnimal.MarkAsNoLongerNeeded();
-        
-        counter++;
-        player.Weapons.Current.Ammo += 2;
-        
-        
-    }
-    void cocktail()
-    {
-        Ped cocktailAnimal = World.CreatePed(zoo[rnd.Next(0, 25)], player.GetOffsetInWorldCoords(new GTA.Math.Vector3(0, 3 , 0)));
-
-        Function.Call(Hash.SET_PED_TO_RAGDOLL, cocktailAnimal, 4000, 4000, 0, 0, 0);
-        cocktailAnimal.Velocity.Equals(100);
-        cocktailAnimal.ApplyForce(player.ForwardVector * 100);
-
-
-        cocktailAnimal.Task.FleeFrom(player.Position);
-        cocktailAnimal.MarkAsNoLongerNeeded();
-        
-        counter++;
-        player.Weapons.Current.Ammo += 2;
-    }
+    
 }
+
