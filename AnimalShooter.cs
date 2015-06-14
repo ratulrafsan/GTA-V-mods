@@ -1,13 +1,16 @@
 //Author : Rafsan Ratul
-//Animal cannon mod for GTA V , lets you shoot with animals! lol
+//Animal cannon V1.1 mod for GTA V , lets you shoot with animals! lol
 
 //There are obviously better way to do this...but meh :v It works!
 
 using System;
 using System.Windows.Forms;
+using System.Collections.Generic;
 using GTA;
 using GTA.Math;
 using GTA.Native;
+using Menu = GTA.Menu;
+
 
 public class AnimalShooter : Script
 {
@@ -18,11 +21,8 @@ public class AnimalShooter : Script
         KeyDown += onKeyDown;
         KeyUp += onKeyUp;
     }
-    
-    //string[] zoo = { "a_c_boar"   , "a_c_chickenhawk", "a_c_shepherd", "a_c_sharktiger", "a_c_seagull", "a_c_rottweiler",
-    //                 "a_c_rhesus" , "a_c_chimp"      , "a_c_chop"    , "a_c_cormorant" , "a_c_cow"    , "a_c_coyote"    ,
-    //                 "a_c_crow"   , "a_c_deer"       , "a_c_fish"    , "a_c_hen"       , "a_c_husky"  , "a_c_mtlion"    ,
-    //                 "a_c_pig"     , "a_c_rat"       , "a_c_retriever"};
+
+
     GTA.Native.PedHash[] zoo = { PedHash.Cat  , PedHash.Cow      , PedHash.Crow     , PedHash.Chop       , PedHash.MountainLion,      
                                  PedHash.Chimp, PedHash.Husky    , PedHash.Coyote   , PedHash.TigerShark , PedHash.Deer        ,
                                  PedHash.Rat  , PedHash.Pig      , PedHash.Boar     , PedHash.Rhesus     , PedHash.HammerShark ,
@@ -36,78 +36,21 @@ public class AnimalShooter : Script
     int counter = 0;
     bool bActivated = false;
     bool bCocktail = false;
-    GTA.Menu AmmoMenu;
-    int force = 100;
-    
-        void shootAnimals()
-    {   
-
-        Ped pedAnimal = (bCocktail)? World.CreatePed(zoo[rnd.Next(0, 25)], player.GetOffsetInWorldCoords(new GTA.Math.Vector3(0, 3, 0))) : World.CreatePed(selectedped, player.GetOffsetInWorldCoords(new GTA.Math.Vector3(0, 3, 0)));
-
-        Function.Call(Hash.SET_PED_TO_RAGDOLL, pedAnimal, 4000, 4000, 0, 0, 0);
-
-        pedAnimal.Velocity.Equals(10);
-        pedAnimal.ApplyForce(player.ForwardVector * 50);
 
 
-        //Function.Call(GTA.Native.Hash.SET_ENTITY_HEALTH, pedAnimal, 0);
-        pedAnimal.Task.FleeFrom(Game.Player.Character.Position);
-        pedAnimal.MarkAsNoLongerNeeded();
-        counter++;
-        player.Weapons.Current.Ammo += 2;
 
-    }
-
-    Vector3 RotationToDirection(Vector3 rotation)
-    {
-        float radZ = rotation.Z * 0.0174532924f;
-        float radX = rotation.X * 0.0174532924f;
-
-        float num = Math.Abs((float)Math.Cos((double)radX));
-
-        return new Vector3
-        {
-            X = (float)((double)((float)(-(float)Math.Sin((double)radZ))) * (double)num),
-            Y = (float)((double)((float)Math.Cos((double)radZ)) * (double)num),
-            Z = (float)Math.Sin((double)radX)
-
-        };
-    }
-
-    void shootAnimal2()
-    {   //get camera roation
-        Vector3 Rot = Function.Call<Vector3>(Hash.GET_CAM_ROT, 2);
-        //normalize to directional vector
-        Vector3 direction = RotationToDirection(Rot);
-
-        //Vector3 Rotation = GameplayCamera.Rotation;
-
-        //directional force vector
-        direction.X = force * direction.X;
-        direction.Y = force * direction.Y;
-        direction.Z = force * direction.Z;
-
-        
-
-        Ped pedAnimal = World.CreatePed(selectedped, player.GetOffsetInWorldCoords(new GTA.Math.Vector3(0, 1, 0)));
-
-        Function.Call(Hash.SET_PED_TO_RAGDOLL, pedAnimal, 4000, 4000, 0, 0, 0);
-
-        Function.Call(Hash.APPLY_FORCE_TO_ENTITY, pedAnimal, direction.X , direction.Y , direction.Z, 0 , 0 , 0 , false, false, true, true, false, true );
-        counter++;
-        player.Weapons.Current.Ammo += 2;
-    }
 
     private void onTick(object sender, EventArgs e)
-    {
+    {   
         if (counter > 300)
         {
-            Function.Call(Hash.CLEAR_AREA, player.Position.X, player.Position.Y, player.Position.Z, 200, false);
+            Function.Call(Hash.CLEAR_AREA, player.Position.X, player.Position.Y, player.Position.Z, 6000, false);
             counter = 0;
+           
         }
-        
+
         //if (player.IsShooting && bActivated) shootAnimals();
-        if (player.IsShooting && bActivated) shootAnimal2();
+        if (player.IsShooting && bActivated) shootAnimals2();
 
 
     }
@@ -119,13 +62,17 @@ public class AnimalShooter : Script
 
     private void onKeyUp(object sender, KeyEventArgs e)
     {
-        if ((e.KeyCode == Keys.F12) && AmmoMenu == null)
+        if (e.KeyCode == Keys.F12)
         {
-            MainMenu();
-        }
-        else if ((e.KeyCode == Keys.F12) && AmmoMenu != null)
-        {
-            CloseMenu();
+            if (this.View.ActiveMenus == 0)
+            {   
+                player.IsInvincible = true;
+                this.MainMenu();
+            }
+            else
+            {   
+                this.View.CloseAllMenus();
+            }
         }
     }
 
@@ -144,53 +91,122 @@ public class AnimalShooter : Script
         }
     }
 
-    void CloseMenu()
-    {
-        View.CloseAllMenus();
-        AmmoMenu = null;
-    }
-
     void MainMenu()
     {
-        CloseMenu();
-        AmmoMenu = new GTA.Menu("Animal Cannon!", new GTA.MenuItem[] { 
-            new MenuButton("Toggle Animal Cannon"  , "Toggles the mod on or off" ,toggler         ),
-            new MenuButton("Cat"            , "Switch to cat ammo"               ,catAmmo         ),
-            new MenuButton("Retriever"      , "Switch to retriever ammo type"    ,retrieverAmmo   ),
-            new MenuButton("Chop"           , "Switch to Chop(Dog) ammo type"    ,chopAmmo        ),
-            new MenuButton("Shepard"        , "Switch to shepard(dog) ammo type" ,shepardAmmo     ),
-            new MenuButton("Huskey"         , "Switch to huskey ammo type"       ,huskeyAmmo      ),
-            new MenuButton("Coyote"         , "Switch to coyote ammo type"       ,coyoteAmmo      ),
-            new MenuButton("Cow"            , "Switch to cow ammo"               ,cowAmmo         ),
-            new MenuButton("Rhesus"         , "Switch to rhesus ammo type"       ,rhesusAmmo      ),
-            new MenuButton("Cormorant"      , "Switch  to cormorant ammo type"   ,cormorantAmmo   ),
-            new MenuButton("Mountain Lion"  , "Switch to mountain lion ammo type",mtlionAmmo      ),
-            new MenuButton("Deer"           , "Switch to deer ammo type"         ,deerAmmo        ),
-            new MenuButton("Rat"            , "Switch to rat ammo type"          ,ratAmmo         ),
-            new MenuButton("Pig "           , "Switch to pig ammo type"          ,pigAmmo         ),
-            new MenuButton("Boar"           , "Switch to boar ammo type"         ,boarAmmo        ),
+        var menuItems = new List<IMenuItem>();
 
-            new MenuButton("Crow"           , "Switch to crow ammo"              ,crowAmmo        ),
-            new MenuButton("Hen"            , "Switch to hen ammo type"          ,henAmmo         ),
-            new MenuButton("ChickenHawk"    , "Switch to chicken-hawk ammo type" ,chickenhawkAmmo ),
-            new MenuButton("Pigeon"         , "Switch to pigeon ammo type"       ,pigeonAmmo      ),
-            new MenuButton("Seagull"        , "Switch to seagull ammo type"      ,seagull         ),
+        var button = new MenuButton("Toggle Animal Cannon", "Toggles Animal Cannon mod");
+        button.Activated += (sender, args) => this.toggler();
+        menuItems.Add(button);
+
+        button = new MenuButton("Cat Ammo", "Switch to cat ammo type");
+        button.Activated += (sender, args) => this.catAmmo();
+        menuItems.Add(button);
+
+        button = new MenuButton("Retriever", "Switch to retriever ammo type");
+        button.Activated += (sender, args) => this.retrieverAmmo();
+        menuItems.Add(button);
+
+        button = new MenuButton("Chop", "Switch to Chop(Dog) ammo type");
+        button.Activated += (sender, args) => this.chopAmmo();
+        menuItems.Add(button);
+
+        button = new MenuButton("Shepard", "Switch to shepard ammo type");
+        button.Activated += (sender, args) => this.shepardAmmo();
+        menuItems.Add(button);
+
+        button = new MenuButton("Huskey", "Switch to huskey ammo type");
+        button.Activated += (sender, args) => this.huskeyAmmo();
+        menuItems.Add(button);
+
+        button = new MenuButton("Coyote", "Switch to coyote ammo type");
+        button.Activated += (sender, args) => this.coyoteAmmo();
+        menuItems.Add(button);
+
+        button = new MenuButton("Cow", "Switch to cow ammo");
+        button.Activated += (sender, args) => this.cowAmmo();
+        menuItems.Add(button);
+
+        button = new MenuButton("Rhesus", "Switch to rhesus ammo type");
+        button.Activated += (sender, args) => this.rhesusAmmo();
+        menuItems.Add(button);
+
+        button = new MenuButton("Cormorant", "Switch  to cormorant ammo type");
+        button.Activated += (sender, args) => this.cormorantAmmo();
+        menuItems.Add(button);
+
+        button = new MenuButton("Mountain Lion", "Switch to mountain lion ammo type");
+        button.Activated += (sender, args) => this.mtlionAmmo();
+        menuItems.Add(button);
+
+        button = new MenuButton("Deer", "Switch to deer ammo type");
+        button.Activated += (sender, args) => this.deerAmmo();
+        menuItems.Add(button);
+
+        button = new MenuButton("Rat", "Switch to rat ammo type");
+        button.Activated += (sender, args) => this.ratAmmo();
+        menuItems.Add(button);
+
+        button = new MenuButton("Pig ", "Switch to pig ammo type");
+        button.Activated += (sender, args) => this.pigAmmo();
+        menuItems.Add(button);
+
+        button = new MenuButton("Boar", "Switch to boar ammo type");
+        button.Activated += (sender, args) => this.boarAmmo();
+        menuItems.Add(button);
+
+        button = new MenuButton("Crow", "Switch to crow ammo");
+        button.Activated += (sender, args) => this.crowAmmo();
+        menuItems.Add(button);
+
+        button = new MenuButton("Hen", "Switch to hen ammo type");
+        button.Activated += (sender, args) => this.henAmmo();
+        menuItems.Add(button);
+
+        button = new MenuButton("ChickenHawk", "Switch to chicken-hawk ammo type");
+        button.Activated += (sender, args) => this.chickenhawkAmmo();
+        menuItems.Add(button);
+
+        button = new MenuButton("Pigeon", "Switch to pigeon ammo type");
+        button.Activated += (sender, args) => this.pigeonAmmo();
+        menuItems.Add(button);
+
+        button = new MenuButton("Seagull", "Switch to seagull ammo type");
+        button.Activated += (sender, args) => this.seagullAmmo();
+        menuItems.Add(button);
+
+        button = new MenuButton("Fish", "Switch to fish ammo type");
+        button.Activated += (sender, args) => this.fishAmmo();
+        menuItems.Add(button);
+
+        button = new MenuButton("Tiger Shark", "Switch to tiger shark ammo type");
+        button.Activated += (sender, args) => this.tsAmmo();
+        menuItems.Add(button);
+
+        button = new MenuButton("Hammer Shark", "Switch to hammer-shark ammo type");
+        button.Activated += (sender, args) => this.hsAmmo();
+        menuItems.Add(button);
+
+        button = new MenuButton("Humpback Whale", "Switch to humpback ammo type");
+        button.Activated += (sender, args) => this.humpbackAmmo();
+        menuItems.Add(button);
+
+        button = new MenuButton("Killer Whale", "Switch to killer-whale ammo type");
+        button.Activated += (sender, args) => this.killerwhaleAmmo();
+        menuItems.Add(button);
+
+        button = new MenuButton("TOGGLE COCKTAIL", "YOU NEVER KNOW!");
+        button.Activated += (sender, args) => this.cocktailAmmo();
+        menuItems.Add(button);
 
 
-            new MenuButton("Fish"           , "Switch to fish ammo type"         ,fishAmmo        ), 
-            new MenuButton("Tiger Shark"    , "Switch to tiger shark ammo type"  ,tsAmmo          ),                      
-            new MenuButton("Hammer Shark"   , "Switch to hammer-shark ammo type" ,hsAmmo          ),
-            new MenuButton("Dolphin"        , "Switch to dolphin ammo type"      ,dolphinAmmo     ),
-            new MenuButton("Humpback Whale" , "Switch to humpback ammo type"     ,humpbackAmmo    ),
-            new MenuButton("Killer Whale"   , "Switch to killer-whale ammo type" ,killerwhaleAmmo ),
-            new MenuButton("TOGGLE COCKTAIL"       , "YOU NEVER KNOW!"                  ,cocktailAmmo)
-            });
-
-
+        Menu AmmoMenu = new Menu("Animal Cannon", menuItems.ToArray());
         AmmoMenu.ItemHeight = 20;
         AmmoMenu.Width = 300;
         AmmoMenu.FooterCentered = true;
-        View.AddMenu(AmmoMenu);
+
+        this.View.AddMenu(AmmoMenu);
+        
     }
 
     void catAmmo()
@@ -265,7 +281,7 @@ public class AnimalShooter : Script
     {
         selectedped = zoo[17];
     }
-    void seagull()
+    void seagullAmmo()
     {
         selectedped = zoo[18];
     }
@@ -309,6 +325,59 @@ public class AnimalShooter : Script
         }
     }
 
-    
-}
 
+    void shootAnimals2()
+    {
+        
+        Ped pedAnimal = (bCocktail) ? World.CreatePed(zoo[rnd.Next(0, 25)], GetCoordsFromCam(5)) : World.CreatePed(selectedped, GetCoordsFromCam(5) );
+
+        Vector3 direction = GetDirectionFromCam();
+        float dx = 0;
+        float dy = 100 + (Math.Abs(direction.Y))  ;
+        float dz = direction.Z * 130;
+        Function.Call(Hash.SET_ENTITY_HEADING, pedAnimal , player.Heading );
+        Function.Call(Hash.APPLY_FORCE_TO_ENTITY , pedAnimal ,1 , dx , dy , dz , 0 , 0 , 0 , false , true,  true , true , false , true);
+        
+        //Function.Call(GTA.Native.Hash.SET_ENTITY_HEALTH, pedAnimal, 0);
+        pedAnimal.Task.FleeFrom(Game.Player.Character.Position);
+        pedAnimal.MarkAsNoLongerNeeded();
+        counter++;
+        player.Weapons.Current.Ammo += 2;
+        Script.Wait(10);
+    }
+
+    Vector3 GetDirectionFromCam()
+    {
+        Vector3 rot = GameplayCamera.Rotation;
+        Vector3 coord = GameplayCamera.Position;
+
+        float tZ = rot.Z * 0.0174532924f;
+        float tX = rot.X * 0.0174532924f;
+        float num = Math.Abs((float)Math.Cos((double)tX));
+        
+
+         coord.X= (float)(-Math.Sin((double)tZ)) * num;
+         coord.Y = (float)(Math.Cos((double)tZ)) * num;
+         coord.Z = (float)(Math.Sin((double)tX));
+            
+        return coord;
+        
+    }
+    Vector3 GetCoordsFromCam(int distance)
+    {
+        Vector3 rot = GameplayCamera.Rotation;
+        Vector3 coord = GameplayCamera.Position;
+
+        float tZ = rot.Z * 0.0174532924f;
+        float tX = rot.X * 0.0174532924f;
+        float num = Math.Abs((float)Math.Cos((double)tX));
+
+        coord.X = coord.X + (float)(-Math.Sin((double)tZ)) * (num + distance);
+        coord.Y = coord.Y + (float)(Math.Cos((double)tZ)) * (num + distance) ;
+        coord.Z = coord.Z + (float)(Math.Sin((double)tX)) * 8;
+
+        return coord;
+
+        
+    }
+}
