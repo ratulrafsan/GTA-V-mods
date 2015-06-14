@@ -345,7 +345,7 @@ public class AnimalShooter : Script
         player.Weapons.Current.Ammo += 2;
         Script.Wait(10);
     }
-
+    //Thanks to spearminty!
     Vector3 GetDirectionFromCam()
     {
         Vector3 rot = GameplayCamera.Rotation;
